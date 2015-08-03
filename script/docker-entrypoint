@@ -7,7 +7,7 @@ DISABLE_XVFB=${DISABLE_XVFB:-0}
 
 # Set the default video name
 VIDEO_NAME=${VIDEO_NAME:-}
-if [ -z ${VIDEO_NAME}]; then
+if [ -z ${VIDEO_NAME} ]; then
   date=$(date -u "+%Y-%m-%d--%H:%M:%S")
   VIDEO_NAME="${BROWSER}-${date}"
 fi
