@@ -4,7 +4,7 @@ function build_image () {
   local image_name=${1}
   local tag=${2:-latest}
   docker build --pull --file Dockerfile-build --tag ${image_name}:${tag} . \
-      && echo docker push ${image_name}:${tag}
+      && docker push ${image_name}:${tag}
 }
 
 # TODO
