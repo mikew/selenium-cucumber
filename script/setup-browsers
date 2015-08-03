@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -e
+
+curl -L https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
+    --output /tmp/google-chrome-stable_current_amd64.deb
+dpkg -i /tmp/google-chrome-stable_current_amd64.deb || apt-get -f -y install
+rm /tmp/google-chrome-stable_current_amd64.deb
+
+curl -L http://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip \
+    --output /tmp/chromedriver.zip
+cd /usr/local/bin
+unzip /tmp/chromedriver.zip
+rm /tmp/chromedriver.zip
+cd -
+
+curl http://ftp.mozilla.org/pub/mozilla.org/firefox/releases/latest/linux-x86_64/en-US/firefox-${FIREFOX_VERSION}.tar.bz2 \
+    --output /tmp/firefox.tar.bz2
+cd /usr/local
+tar -jxf /tmp/firefox.tar.bz2
+ln -s /usr/local/firefox/firefox /usr/local/bin/firefox
+ln -s /usr/local/firefox/firefox-bin /usr/local/bin/firefox-bin
+rm /tmp/firefox.tar.bz2
+cd -

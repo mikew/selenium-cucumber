@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+MAIN_PID=-1
+XVFB_PID=-1
+AVCONV_PID=-1
+DISABLE_XVFB=${DISABLE_XVFB:-0}
+DISABLE_VIDEO=${DISABLE_VIDEO:-0}
+
+# Set the default video name
+VIDEO_NAME=${VIDEO_NAME:-}
+if [ -z ${VIDEO_NAME}]; then
+  date=$(date -u "+%Y-%m-%d--%H:%M:%S")
+  VIDEO_NAME="${BROWSER}-${date}"
+fi
+
+function teardown () {
+  kill $AVCONV_PID
+  wait $AVCONV_PID
+  avconv \
+      -loglevel error \
+      -i /app-tests/videos/${VIDEO_NAME}.mkv \
+      -codec copy \
+      /app-tests/videos/${VIDEO_NAME}.mp4
+  rm /app-tests/videos/${VIDEO_NAME}.mkv
+
+  kill $XVFB_PID
+  wait $XVFB_PID
+
+  kill $MAIN_PID
+  wait $MAIN_PID
+  exit $?
+}
+
+function load-entrypoint.d () {
+  if [ -d /docker-entrypoint.d ]; then
+    for f in /docker-entrypoint.d/*.sh; do
+      [ -f "$f" ] && . "$f"
+    done
+  fi
+}
+
+function detect-bash () {
+  if [ $1 == "bash" ]; then
+    #echo "bash detected"
+    DISABLE_XVFB="1"
+  fi
+}
+
+function ensure-dirs-exist () {
+  mkdir -p \
+      /app-tests/test-output \
+      /app-tests/videos
+}
+
+function start-xvfb () {
+  Xvfb ${DISPLAY} \
+      -screen 0 ${SCREEN_WIDTH}x${SCREEN_HEIGHT}x${SCREEN_DEPTH} \
+      -ac \
+      +extension RANDR &
+  XVFB_PID=$!
+}
+
+function start-avconv () {
+  avconv -f x11grab \
+      -loglevel error \
+      -r 25 \
+      -s ${SCREEN_WIDTH}x${SCREEN_HEIGHT} \
+      -i ${DISPLAY}+0,0 \
+      /app-tests/videos/${VIDEO_NAME}.mkv &
+  AVCONV_PID=$!
+}
+
+ensure-dirs-exist
+detect-bash "$@"
+load-entrypoint.d
+
+if [ $DISABLE_XVFB == 1 ]; then
+  #echo "XVFB disabled"
+  exec "$@"
+else
+  start-xvfb
+  start-avconv
+
+  trap teardown SIGTERM SIGINT
+  "$@" &
+  MAIN_PID=$!
+  wait $MAIN_PID
+  teardown
+fi

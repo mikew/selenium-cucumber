@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+function build_image () {
+  local image_name=${1}
+  local tag=${2:-latest}
+  docker build --pull --file Dockerfile-build --tag ${image_name}:${tag} . \
+      && echo docker push ${image_name}:${tag}
+}
+
+# TODO
+# We can scrape the latest versions of chrome, firefox, chromedriver, etc and
+# simply replace them in Dockerfile-build. CI runs this script and everyone is
+# up to date.
+
+cp Dockerfile Dockerfile-build
+build_image mikewhy/selenium-cucumber
