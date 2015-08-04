@@ -72,8 +72,7 @@ function start-xvfb () {
 }
 
 function kill-xvfb () {
-  kill $XVFB_PID
-  wait $XVFB_PID
+  kill-and-wait $XVFB_PID
   XVFB_PID=-2
 }
 
@@ -88,9 +87,18 @@ function start-avconv () {
 }
 
 function kill-avconv () {
-  kill $AVCONV_PID
-  wait $AVCONV_PID
+  kill-and-wait $AVCONV_PID
   AVCONV_PID=-2
+}
+
+function kill-and-wait () {
+  local pid=${1}
+  if [ $pid -lt 1 ]; then
+    return
+  fi
+
+  kill $pid
+  wait $pid
 }
 
 function convert-video-to-mp4 () {
