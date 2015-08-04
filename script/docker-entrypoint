@@ -4,6 +4,7 @@ MAIN_PID=-2
 XVFB_PID=-2
 AVCONV_PID=-2
 DISABLE_XVFB=${DISABLE_XVFB:-0}
+DISABLE_VIDEO=${DISABLE_VIDEO:-0}
 
 # Set the default video name
 VIDEO_NAME=${VIDEO_NAME:-}
@@ -12,22 +13,46 @@ if [ -z ${VIDEO_NAME} ]; then
   VIDEO_NAME="${BROWSER}-${date}"
 fi
 
+function main () {
+  ensure-dirs-exist
+  detect-bash "$@"
+  load-entrypoint.d
+
+  if [ $DISABLE_XVFB == 1 ]; then
+    #echo "XVFB disabled"
+    exec "$@"
+  else
+    start-xvfb
+    if [ ! $DISABLE_VIDEO == 1 ]; then
+      start-avconv
+    fi
+
+    trap teardown SIGTERM SIGINT
+    "$@" &
+    MAIN_PID=$!
+    wait $MAIN_PID
+    teardown
+  fi
+}
+
 function teardown () {
-  kill $AVCONV_PID
-  wait $AVCONV_PID
-  avconv \
-      -loglevel error \
-      -i /app-tests/videos/${VIDEO_NAME}.mkv \
-      -codec copy \
-      /app-tests/videos/${VIDEO_NAME}.mp4
-  rm /app-tests/videos/${VIDEO_NAME}.mkv
+  kill-avconv
+  convert-video-to-mp4
+  kill-xvfb
+  kill-main
+}
 
-  kill $XVFB_PID
-  wait $XVFB_PID
+function ensure-dirs-exist () {
+  mkdir -p \
+      /app-tests/test-output \
+      /app-tests/videos
+}
 
-  kill $MAIN_PID
-  wait $MAIN_PID
-  exit $?
+function detect-bash () {
+  if [ $1 == "bash" ]; then
+    #echo "bash detected"
+    DISABLE_XVFB="1"
+  fi
 }
 
 function load-entrypoint.d () {
@@ -38,19 +63,6 @@ function load-entrypoint.d () {
   fi
 }
 
-function detect-bash () {
-  if [ $1 == "bash" ]; then
-    #echo "bash detected"
-    DISABLE_XVFB="1"
-  fi
-}
-
-function ensure-dirs-exist () {
-  mkdir -p \
-      /app-tests/test-output \
-      /app-tests/videos
-}
-
 function start-xvfb () {
   Xvfb ${DISPLAY} \
       -screen 0 ${SCREEN_WIDTH}x${SCREEN_HEIGHT}x${SCREEN_DEPTH} \
@@ -59,30 +71,45 @@ function start-xvfb () {
   XVFB_PID=$!
 }
 
+function kill-xvfb () {
+  kill $XVFB_PID
+  wait $XVFB_PID
+  XVFB_PID=-2
+}
+
 function start-avconv () {
   avconv -f x11grab \
       -loglevel error \
       -r 25 \
       -s ${SCREEN_WIDTH}x${SCREEN_HEIGHT} \
       -i ${DISPLAY}+0,0 \
-      /app-tests/videos/${VIDEO_NAME}.mkv &
+      "/app-tests/videos/${VIDEO_NAME}.mkv" &
   AVCONV_PID=$!
 }
 
-ensure-dirs-exist
-detect-bash "$@"
-load-entrypoint.d
+function kill-avconv () {
+  kill $AVCONV_PID
+  wait $AVCONV_PID
+  AVCONV_PID=-2
+}
 
-if [ $DISABLE_XVFB == 1 ]; then
-  #echo "XVFB disabled"
-  exec "$@"
-else
-  start-xvfb
-  start-avconv
+function convert-video-to-mp4 () {
+  if [ ! -f "/app-tests/videos/${VIDEO_NAME}.mkv" ]; then
+    return
+  fi
 
-  trap teardown SIGTERM SIGINT
-  "$@" &
-  MAIN_PID=$!
+  avconv \
+      -loglevel error \
+      -i "/app-tests/videos/${VIDEO_NAME}.mkv" \
+      -codec copy \
+      "/app-tests/videos/${VIDEO_NAME}.mp4"
+  rm "/app-tests/videos/${VIDEO_NAME}.mkv"
+}
+
+function kill-main () {
+  kill $MAIN_PID
   wait $MAIN_PID
-  teardown
-fi
+  exit $?
+}
+
+main "$@"
