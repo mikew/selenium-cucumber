@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-MAIN_PID=-1
-XVFB_PID=-1
-AVCONV_PID=-1
+MAIN_PID=-2
+XVFB_PID=-2
+AVCONV_PID=-2
 DISABLE_XVFB=${DISABLE_XVFB:-0}
 
 # Set the default video name
